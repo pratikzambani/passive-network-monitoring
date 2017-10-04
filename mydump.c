@@ -1,4 +1,7 @@
 #include<stdio.h>
+#include<stdlib.h>
+#include<pcap.h>
+#include<arpa/inet.h>
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -60,20 +63,57 @@ struct sniff_tcp {
         u_short th_urp;                 /* urgent pointer */
 };
 
-i
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
-A
+int main(int argc, char **argv)
+{
+  char *device = NULL;
+  char errbuffer[PCAP_ERRBUF_SIZE];
+  pcap_t *handle;
+  char filter_expr[] = "";
+  struct bpf_program fp;
+  bpf_u_int32 mask;
+  bpf_u_int32 net;
 
+  device = pcap_lookupdev(errbuffer);
+  if(device == NULL)
+  {
+    fprintf(stderr, "Couldn't find default device: %s\n",errbuffer);
+    exit(EXIT_FAILURE);
+  }
+  
+  if(pcap_lookupnet(device, &net, &mask, errbuffer) == -1)
+  {
+    fprintf(stderr, "Couldn't get netmask for device %s: %s\n",device, errbuffer);
+    net=0;
+    mask=0;
+  }
+
+  handle = pcap_open_live(device, SNAP_LEN, 1, 10000, errbuffer);
+  if (handle == NULL)
+  {
+    fprintf(stderr, "Couldn't open device %s:%s\n",device, errbuffer);
+    exit(EXIT_FAILURE);
+  }
+
+  if (pcap_datalink(handle) != DLT_EN10MB)
+  {
+    fprintf(stderr, "Device %s is not on Ethernet protocol\n", device);
+    exit(EXIT_FAILURE);
+  }
+  
+  if (pcap_compile(handle, &fp, filter_expr, 0, net) == -1)
+  {
+    fprintf(stderr, "Couldn't parse filter %s:%s\n", filter_expr, pcap_geterr(handle));
+    exit(EXIT_FAILURE);
+  }
+
+  if (pcap_setfilter(handle, &fp) == -1)
+  {
+    fprintf(stderr, "Couldn't install filter %s:%s\n",filter_expr, pcap_geterr(handle));
+    exit(EXIT_FAILURE);
+  }
+
+  pcap_freecode(&fp);
+  pcap_close(handle);
+
+  return 0;
+}
