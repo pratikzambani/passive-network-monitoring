@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<signal.h>
 #include<pcap.h>
 #include<arpa/inet.h>
 
@@ -63,6 +64,42 @@ struct sniff_tcp {
         u_short th_urp;                 /* urgent pointer */
 };
 
+volatile int run=1;
+
+void sigint_handler(int signum)
+{
+  run=0;
+}
+
+void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+{
+  const struct sniff_ethernet *ethernet;
+  const struct sniff_ip *ip;
+  const struct sniff_tcp *tcp;
+  const char *payload;
+
+  ethernet = (struct sniff_ethernet*)packet;
+  
+  switch(ip->ip_p)
+  {
+    case IPPROTO_TCP:
+      printf("TCP");
+      break;
+    case IPPROTO_UDP:
+      printf("UDP");
+      break; 
+    case IPPROTO_ICMP:
+      printf("ICMP");
+      break;
+    case IPPROTO_IP:
+      printf("IP");
+      break;
+    default:
+      printf("Unknown protocol");
+      return;
+  }
+}
+
 int main(int argc, char **argv)
 {
   char *device = NULL;
@@ -72,6 +109,8 @@ int main(int argc, char **argv)
   struct bpf_program fp;
   bpf_u_int32 mask;
   bpf_u_int32 net;
+
+  signal(SIGINT, sigint_handler);
 
   device = pcap_lookupdev(errbuffer);
   if(device == NULL)
@@ -110,6 +149,11 @@ int main(int argc, char **argv)
   {
     fprintf(stderr, "Couldn't install filter %s:%s\n",filter_expr, pcap_geterr(handle));
     exit(EXIT_FAILURE);
+  }
+
+  while(run)
+  {
+    pcap_loop(handle, 1, pkt_receive_callback, NULL);   
   }
 
   pcap_freecode(&fp);
