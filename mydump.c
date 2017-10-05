@@ -89,6 +89,62 @@ void sigint_handler(int signum)
   run=0;
 }
 
+void print_line(const u_char *payload, int len, int std_line_width)
+{
+  if(len <= 0)
+    return;
+  
+  const u_char *ch;
+  int i, empty_spaces;
+
+  ch = payload;
+  for(i=0;i<len;i++)
+  {
+    printf("%02x ",*ch);
+    ch++;
+  }
+  if(len < std_line_width)
+  {
+    empty_spaces = std_line_width - len;
+    for(i=0;i<empty_spaces;i++)
+      printf("   ");
+  }
+  printf("   ");
+
+  ch=payload;
+  for(i=0;i<len;i++)
+  {
+    if(isprint(*ch))
+      printf("%c",*ch);
+    else
+      printf(".");
+    ch++;
+  }
+  printf("\n");
+
+}
+
+void print_payload(const u_char *payload, int len)
+{
+  int std_line_width = 16;
+  int line_len;
+  int len_rem = len;
+  const u_char *ch = payload;
+ 
+  while(1)
+  {
+    if(len_rem <= std_line_width)
+    {
+      print_line(ch, len_rem, std_line_width);
+      break;
+    }
+    line_len = std_line_width % len_rem;
+    print_line(ch, line_len, std_line_width);
+    len_rem = len_rem - line_len;
+    ch = ch + line_len;
+  } 
+}
+
 void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
   const struct sniff_ethernet *ethernet;
@@ -125,11 +181,11 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
 
   printf("%02X:%02X:%02X:%02X:%02X:%02X",ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2], ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]); 
   
-  printf(" type %u 0x%04X ", (unsigned short)ethernet->ether_type, ethernet->ether_type);
+  printf(" type %u 0x%04X", (unsigned short)ethernet->ether_type, ethernet->ether_type);
  
   if(ntohs(ethernet->ether_type) == ETHERTYPE_IP)
   {
-    printf("len ");
+    printf(" len \n");
     ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     size_ip = IP_HL(ip)*4;
     if(size_ip < 20)
@@ -147,7 +203,15 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
         printf("Invalid TCP header length %u bytes\n", size_tcp);
         return;
       }
-      printf("%s:%d -> %s:%d TCP ",inet_ntoa(ip->ip_src), ntohs(tcp->th_sport), inet_ntoa(ip->ip_dst), ntohs(tcp->th_dport));
+      printf("%s:%d -> %s:%d TCP\n",inet_ntoa(ip->ip_src), ntohs(tcp->th_sport), inet_ntoa(ip->ip_dst), ntohs(tcp->th_dport));
+      
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_tcp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
+
+      if(size_payload > 0)
+      {
+        print_payload(payload, size_payload);
+      }
     }
     else if(ip->ip_p == IPPROTO_UDP)
     {
@@ -163,18 +227,16 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
     }
     else if(ip->ip_p == IPPROTO_ICMP)
     {
-      printf("%s:%d -> %s:%d ICMP ",inet_ntoa(ip->ip_src), ntohs(tcp->th_sport), inet_ntoa(ip->ip_dst), ntohs(tcp->th_dport));
+      printf("%s -> %s ICMP ",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
     }  
-    else if(ip->ip_p == IPPROTO_IP)
-    {
-      printf("IP\n");
-    }
     else
     {
-      printf("Unknown proto %u %c \n", ip->ip_p, ip->ip_p);
+      printf("%s -> %s OTHER ",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
     }
-
+    printf("\n");
   }
+  else
+    printf("\n\n");
 }
 
 int main(int argc, char **argv)
