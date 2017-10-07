@@ -1,5 +1,7 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<unistd.h>
+#include<string.h>
 #include<signal.h>
 #include<time.h>
 #include<netinet/if_ether.h>
@@ -145,6 +147,99 @@ void print_payload(const u_char *payload, int len)
   } 
 }
 
+// returns on whether packet payload matches given str
+// on true ie 1, packet is processed by calling callback function  
+int handle_str_matching_pkt(const struct pcap_pkthdr *header, const u_char *packet, char *mstr)
+{
+  const struct sniff_ethernet *ethernet;
+  const struct sniff_ip *ip;
+  const struct sniff_tcp *tcp;
+  const struct sniff_udp *udp;
+  const char *payload;
+  
+  int size_ip;
+  int size_tcp;
+  int size_udp;
+  int size_icmp;
+  int size_payload;
+
+  ethernet = (struct sniff_ethernet*)packet;
+
+  if(ntohs(ethernet->ether_type) == ETHERTYPE_IP)
+  {
+    ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    size_ip = IP_HL(ip)*4;
+    if(size_ip < 20)
+    {
+      printf("Invalid IP header length %u bytes\n", size_ip);
+      return 0;
+    }
+   
+    if(ip->ip_p == IPPROTO_TCP)
+    {
+      tcp = (struct sniff_tcp*)(packet+SIZE_ETHERNET+size_ip);
+      size_tcp = TH_OFF(tcp)*4;
+      if(size_tcp < 20)
+      {
+        printf("Invalid TCP header length %u bytes\n", size_tcp);
+        return 0;
+      }
+      
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_tcp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
+
+      if(size_payload > 0)
+      {
+        if(strstr(payload, mstr) != NULL)
+          return 1;
+        return 0;
+      }
+    }
+    else if(ip->ip_p == IPPROTO_UDP)
+    {
+      udp = (struct sniff_udp*)(packet+SIZE_ETHERNET+size_ip);
+      size_udp = 8;
+
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_udp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_udp);
+
+      if(size_payload > 0)
+      {
+        if(strstr(payload, mstr) != NULL)
+          return 1;
+        return 0;
+      }
+    }
+    else if(ip->ip_p == IPPROTO_ICMP)
+    {
+      
+      size_icmp = 8;
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_icmp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_icmp);
+      if(size_payload > 0)
+      {
+        if(strstr(payload, mstr) != NULL)
+          return 1;
+        return 0;
+      }
+    }  
+    else
+    {
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip);
+      size_payload = ntohs(ip->ip_len) - (size_ip);
+      if(size_payload > 0)
+      {
+        if(strstr(payload, mstr) != NULL)
+          return 1;
+        return 0;
+      }
+    }
+  }
+  //else
+  //  return 1;
+  return 0;
+}
+
 void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
   const struct sniff_ethernet *ethernet;
@@ -156,14 +251,31 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
   int size_ip;
   int size_tcp;
   int size_udp;
+  int size_icmp;
   int size_payload;
   //int caplen = header.caplen;
-
+  //printf("hey there\n");
+  char *mstr = NULL;
+  if(args != NULL)
+  {
+    printf("args are %s\n", args);
+    mstr = args;
+    printf("String matching pattern is %s\n",mstr);
+  }
+  //printf("hey there 2\n");
+  if(mstr != NULL)
+  {
+    printf("aa gaya bro\n");
+    if(handle_str_matching_pkt(header, packet, mstr) == 0)
+      return;
+    printf("still not phata\n");
+  }
+  printf("alrighty\n");
   char fmt[64],buf[64];
   struct timeval tv;
   struct tm *tm;
 
-  gettimeofday(&tv, NULL);
+  tv = header->ts;
   tm = localtime(&tv.tv_sec);
 
   if(tm != NULL)
@@ -172,7 +284,7 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
     snprintf(buf, sizeof buf, fmt, tv.tv_usec);
     printf("%s",buf);
   }
-   
+  //printf("printed time\n"); 
   ethernet = (struct sniff_ethernet*)packet;
 
   printf("%02X:%02X:%02X:%02X:%02X:%02X",ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2], ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]); 
@@ -185,8 +297,10 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
  
   if(ntohs(ethernet->ether_type) == ETHERTYPE_IP)
   {
-    printf(" len \n");
+    //printf("pehle\n");
+    //printf("baadmein\n");
     ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    printf(" len %d\n",ntohs(ip->ip_len));
     size_ip = IP_HL(ip)*4;
     if(size_ip < 20)
     {
@@ -215,25 +329,40 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
     }
     else if(ip->ip_p == IPPROTO_UDP)
     {
-      // inst.eecs.berkeley.edu/~ee122/fa07/projects/p2files/packet_parser.c 
       udp = (struct sniff_udp*)(packet+SIZE_ETHERNET+size_ip);
-      /*size_udp = caplen - SIZE_ETHERNET - size_ip;
-      if(size_udp < sizeof(struct sniff_udp))
-      {
-        printf("Invalid UDP header length %u bytes\n", size_udp);
-        return;
-      }*/
-      printf("%s:%d -> %s:%d UDP ",inet_ntoa(ip->ip_src), ntohs(udp->uh_sport), inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
+      size_udp = 8;
+      printf("%s:%d -> %s:%d UDP\n",inet_ntoa(ip->ip_src), ntohs(udp->uh_sport), inet_ntoa(ip->ip_dst), ntohs(udp->uh_dport));
+
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_udp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_udp);
+
+      if(size_payload > 0)
+        print_payload(payload, size_payload);
     }
     else if(ip->ip_p == IPPROTO_ICMP)
     {
-      printf("%s -> %s ICMP ",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
+      printf("%s -> %s ICMP\n",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
+      
+      size_icmp = 8;
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip+size_icmp);
+      size_payload = ntohs(ip->ip_len) - (size_ip + size_icmp);
+      if(size_payload > 0)
+        print_payload(payload, size_payload);
     }  
     else
     {
-      printf("%s -> %s OTHER ",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
+      printf("%s -> %s OTHER \n",inet_ntoa(ip->ip_src), inet_ntoa(ip->ip_dst));
+
+      payload = (u_char *)(packet+SIZE_ETHERNET+size_ip);
+      size_payload = ntohs(ip->ip_len) - (size_ip);
+      if(size_payload > 0)
+        print_payload(payload, size_payload);
     }
     printf("\n");
+  }
+  else if(ntohs(ethernet->ether_type) == ETHERTYPE_ARP)
+  {
+    printf("ARP\n\n");
   }
   else
     printf("\n\n");
@@ -242,34 +371,92 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
 int main(int argc, char **argv)
 {
   char *device = NULL;
+  char *rfile = NULL;
+  char *mstr = NULL;
+  char *filter_expr = NULL;
   char errbuffer[PCAP_ERRBUF_SIZE];
   pcap_t *handle;
-  char filter_expr[] = "";
+  //char filter_expr[] = "";
   struct bpf_program fp;
   bpf_u_int32 mask;
   bpf_u_int32 net;
 
+  // signal to handle Ctrl + C exits
   signal(SIGINT, sigint_handler);
 
-  device = pcap_lookupdev(errbuffer);
-  if(device == NULL)
+  int c;
+  // reading command line args
+  while((c = getopt(argc, argv, "i:r:s:")) != -1)
   {
-    fprintf(stderr, "Couldn't find default device: %s\n",errbuffer);
-    exit(EXIT_FAILURE);
-  }
-  
-  if(pcap_lookupnet(device, &net, &mask, errbuffer) == -1)
-  {
-    fprintf(stderr, "Couldn't get netmask for device %s: %s\n",device, errbuffer);
-    net=0;
-    mask=0;
+    switch(c)
+    {
+      case 'i':
+        device = optarg;
+        break;
+      case 'r':
+        rfile = optarg;
+        break;
+      case 's':
+        mstr = optarg;
+        break;
+      case '?':
+        if(optopt == 'i' || optopt == 'r' || optopt == 's')
+          fprintf(stderr, "Option -%c requires an argument\n",optopt);
+        else
+          fprintf(stderr, "Unknown option\n");
+        return 1;
+      default:
+        abort();
+      
+    }
   }
 
-  handle = pcap_open_live(device, SNAP_LEN, 1, 10000, errbuffer);
-  if (handle == NULL)
+  if(optind == argc-1)
+    filter_expr = argv[optind];
+  printf("filter expr is %s\n", filter_expr);
+  if(device != NULL && rfile != NULL)
   {
-    fprintf(stderr, "Couldn't open device %s:%s\n",device, errbuffer);
+    fprintf(stderr, "Invalid arguments. Can't use -i and -r option together\n");
     exit(EXIT_FAILURE);
+  }
+   
+  // set default device if not provided by user
+  if(device == NULL && rfile == NULL)
+  {
+    device = pcap_lookupdev(errbuffer);
+    if(device == NULL)
+    {
+      fprintf(stderr, "Couldn't find default device: %s\n",errbuffer);
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  // preparing for sniffing
+  if(device != NULL && rfile == NULL)
+  {  
+    if(pcap_lookupnet(device, &net, &mask, errbuffer) == -1)
+    {
+      fprintf(stderr, "Couldn't get netmask for device %s: %s\n",device, errbuffer);
+      net=0;
+      mask=0;
+    }
+
+    handle = pcap_open_live(device, SNAP_LEN, 1, 10000, errbuffer);
+    if (handle == NULL)
+    {
+      fprintf(stderr, "Couldn't open device %s:%s\n",device, errbuffer);
+      exit(EXIT_FAILURE);
+    }
+  }
+  // reading dump from input file
+  else if(device == NULL && rfile != NULL)
+  {
+    handle = pcap_open_offline(rfile, errbuffer);
+    if (handle == NULL)
+    {
+      fprintf(stderr, "Couldn't open file %s:%s\n", rfile, errbuffer);
+      exit(EXIT_FAILURE);
+    }
   }
 
   if (pcap_datalink(handle) != DLT_EN10MB)
@@ -278,24 +465,28 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
   
-  if (pcap_compile(handle, &fp, filter_expr, 0, net) == -1)
+  // handle bpf filters
+  if(filter_expr != NULL)
   {
-    fprintf(stderr, "Couldn't parse filter %s:%s\n", filter_expr, pcap_geterr(handle));
-    exit(EXIT_FAILURE);
-  }
+    if (pcap_compile(handle, &fp, filter_expr, 0, net) == -1)
+    {
+      fprintf(stderr, "Couldn't parse filter %s:%s\n", filter_expr, pcap_geterr(handle));
+      exit(EXIT_FAILURE);
+    }
 
-  if (pcap_setfilter(handle, &fp) == -1)
-  {
-    fprintf(stderr, "Couldn't install filter %s:%s\n",filter_expr, pcap_geterr(handle));
-    exit(EXIT_FAILURE);
+    if (pcap_setfilter(handle, &fp) == -1)
+    {
+      fprintf(stderr, "Couldn't install filter %s:%s\n",filter_expr, pcap_geterr(handle));
+      exit(EXIT_FAILURE);
+    }
   }
 
   while(run)
   {
-    pcap_loop(handle, 1, pkt_receive_callback, NULL);   
+    pcap_loop(handle, 1, pkt_receive_callback, mstr);   
   }
 
-  pcap_freecode(&fp);
+  //pcap_freecode(&fp);
   pcap_close(handle);
 
   return 0;
