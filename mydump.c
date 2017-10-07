@@ -1,3 +1,10 @@
+// quit after file is read with -r
+// test for string match
+// fix type
+// confirm len
+// filter expr functionality?
+// fix time, localtime
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
