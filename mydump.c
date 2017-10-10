@@ -1,6 +1,3 @@
-// quit after file is read with -r
-// test for string match
-// fix type
 // confirm len
 // filter expr functionality?
 // fix time, localtime
@@ -91,11 +88,36 @@ struct timeval TimeStamp()
   return tv;
 }*/
 
+
+
 volatile int run=1;
 
 void sigint_handler(int signum)
 {
   run=0;
+}
+
+char *mystrstr(const char *str, const char *pattern, int size_str)
+{
+  if(!*pattern)
+    return str;
+  char *p1 = (char *)str;
+  int i=0;
+  while(i <= size_str)
+  {
+    char *pb = p1;
+    char *p2 = (char *)pattern;
+    while(*p1 && *p2 && *p1 == *p2)
+    {
+      p1++;
+      p2++;
+    }
+    if(!*p2)
+      return pb;
+    i++;
+    p1 = pb+1;
+  }
+  return NULL;
 }
 
 void print_line(const u_char *payload, int len, int std_line_width)
@@ -197,7 +219,7 @@ int handle_str_matching_pkt(const struct pcap_pkthdr *header, const u_char *pack
 
       if(size_payload > 0)
       {
-        if(strstr(payload, mstr) != NULL)
+        if(mystrstr(payload, mstr, size_payload) != NULL)
           return 1;
         return 0;
       }
@@ -212,7 +234,7 @@ int handle_str_matching_pkt(const struct pcap_pkthdr *header, const u_char *pack
 
       if(size_payload > 0)
       {
-        if(strstr(payload, mstr) != NULL)
+        if(mystrstr(payload, mstr, size_payload) != NULL)
           return 1;
         return 0;
       }
@@ -225,7 +247,7 @@ int handle_str_matching_pkt(const struct pcap_pkthdr *header, const u_char *pack
       size_payload = ntohs(ip->ip_len) - (size_ip + size_icmp);
       if(size_payload > 0)
       {
-        if(strstr(payload, mstr) != NULL)
+        if(mystrstr(payload, mstr, size_payload) != NULL)
           return 1;
         return 0;
       }
@@ -236,7 +258,7 @@ int handle_str_matching_pkt(const struct pcap_pkthdr *header, const u_char *pack
       size_payload = ntohs(ip->ip_len) - (size_ip);
       if(size_payload > 0)
       {
-        if(strstr(payload, mstr) != NULL)
+        if(mystrstr(payload, mstr, size_payload) != NULL)
           return 1;
         return 0;
       }
@@ -265,19 +287,16 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
   char *mstr = NULL;
   if(args != NULL)
   {
-    printf("args are %s\n", args);
     mstr = args;
     printf("String matching pattern is %s\n",mstr);
   }
   //printf("hey there 2\n");
   if(mstr != NULL)
   {
-    printf("aa gaya bro\n");
     if(handle_str_matching_pkt(header, packet, mstr) == 0)
       return;
-    printf("still not phata\n");
   }
-  printf("alrighty\n");
+  //printf("alrighty\n");
   char fmt[64],buf[64];
   struct timeval tv;
   struct tm *tm;
@@ -300,14 +319,14 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
 
   printf("%02X:%02X:%02X:%02X:%02X:%02X",ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2], ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]); 
   
-  printf(" type %u 0x%04X", (unsigned short)ethernet->ether_type, ethernet->ether_type);
+  printf(" type 0x%X ", ntohs(ethernet->ether_type));
  
   if(ntohs(ethernet->ether_type) == ETHERTYPE_IP)
   {
     //printf("pehle\n");
     //printf("baadmein\n");
     ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-    printf(" len %d\n",ntohs(ip->ip_len));
+    printf("len %d\n",ntohs(ip->ip_len));
     size_ip = IP_HL(ip)*4;
     if(size_ip < 20)
     {
@@ -420,6 +439,7 @@ int main(int argc, char **argv)
 
   if(optind == argc-1)
     filter_expr = argv[optind];
+  filter_expr = "dst host 239.255.255.250";
   printf("filter expr is %s\n", filter_expr);
   if(device != NULL && rfile != NULL)
   {
@@ -488,10 +508,13 @@ int main(int argc, char **argv)
     }
   }
 
-  while(run)
+  if(rfile == NULL)
   {
-    pcap_loop(handle, 1, pkt_receive_callback, mstr);   
+    while(run)
+      pcap_loop(handle, 1, pkt_receive_callback, mstr);
   }
+  else
+    pcap_loop(handle, -1, pkt_receive_callback, mstr);
 
   //pcap_freecode(&fp);
   pcap_close(handle);
