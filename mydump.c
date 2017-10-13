@@ -399,10 +399,10 @@ int main(int argc, char **argv)
   char *device = NULL;
   char *rfile = NULL;
   char *mstr = NULL;
-  char *filter_expr = NULL;
+  //char *filter_expr = NULL;
   char errbuffer[PCAP_ERRBUF_SIZE];
   pcap_t *handle;
-  //char filter_expr[] = "";
+  char filter_expr[] = "";
   struct bpf_program fp;
   bpf_u_int32 mask;
   bpf_u_int32 net;
@@ -436,11 +436,17 @@ int main(int argc, char **argv)
       
     }
   }
-
-  if(optind == argc-1)
-    filter_expr = argv[optind];
-  filter_expr = "dst host 239.255.255.250";
-  printf("filter expr is %s\n", filter_expr);
+  int index;
+  for(index=optind; index<argc; index++)
+  {
+    if(filter_expr == "")
+      strcpy(filter_expr, argv[index]);
+    else
+      strcat(filter_expr, argv[index]);
+    if(index != argc-1)
+      strcat(filter_expr, " ");
+  }
+  printf("filter expr is r%sr\n", filter_expr);
   if(device != NULL && rfile != NULL)
   {
     fprintf(stderr, "Invalid arguments. Can't use -i and -r option together\n");
@@ -493,8 +499,9 @@ int main(int argc, char **argv)
   }
   
   // handle bpf filters
-  if(filter_expr != NULL)
+  if(filter_expr != "")
   {
+    printf("Filter expr is not NULL\n");
     if (pcap_compile(handle, &fp, filter_expr, 0, net) == -1)
     {
       fprintf(stderr, "Couldn't parse filter %s:%s\n", filter_expr, pcap_geterr(handle));
