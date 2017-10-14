@@ -1,7 +1,3 @@
-// confirm len
-// filter expr functionality?
-// fix time, localtime
-
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
@@ -283,20 +279,14 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
   int size_icmp;
   int size_payload;
   //int caplen = header.caplen;
-  //printf("hey there\n");
   char *mstr = NULL;
   if(args != NULL)
-  {
     mstr = args;
-    printf("String matching pattern is %s\n",mstr);
-  }
-  //printf("hey there 2\n");
   if(mstr != NULL)
   {
     if(handle_str_matching_pkt(header, packet, mstr) == 0)
       return;
   }
-  //printf("alrighty\n");
   char fmt[64],buf[64];
   struct timeval tv;
   struct tm *tm;
@@ -310,7 +300,6 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
     snprintf(buf, sizeof buf, fmt, tv.tv_usec);
     printf("%s",buf);
   }
-  //printf("printed time\n"); 
   ethernet = (struct sniff_ethernet*)packet;
 
   printf("%02X:%02X:%02X:%02X:%02X:%02X",ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2], ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]); 
@@ -323,8 +312,6 @@ void pkt_receive_callback(u_char *args, const struct pcap_pkthdr *header, const 
  
   if(ntohs(ethernet->ether_type) == ETHERTYPE_IP)
   {
-    //printf("pehle\n");
-    //printf("baadmein\n");
     ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
     printf("len %d\n",ntohs(ip->ip_len));
     size_ip = IP_HL(ip)*4;
@@ -446,7 +433,6 @@ int main(int argc, char **argv)
     if(index != argc-1)
       strcat(filter_expr, " ");
   }
-  printf("filter expr is r%sr\n", filter_expr);
   if(device != NULL && rfile != NULL)
   {
     fprintf(stderr, "Invalid arguments. Can't use -i and -r option together\n");
@@ -501,7 +487,6 @@ int main(int argc, char **argv)
   // handle bpf filters
   if(filter_expr != "")
   {
-    printf("Filter expr is not NULL\n");
     if (pcap_compile(handle, &fp, filter_expr, 0, net) == -1)
     {
       fprintf(stderr, "Couldn't parse filter %s:%s\n", filter_expr, pcap_geterr(handle));
