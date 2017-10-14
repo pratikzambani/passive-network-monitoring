@@ -1,1 +1,517 @@
-report
+mydump [-i interface] [-r file] [-s string] expression
+
+-i  Live capture from the network device <interface> (e.g., eth0). If not
+    specified, mydump should automatically select a default interface to
+    listen on (hint 1). Capture should continue indefinitely until the user
+    terminates the program.
+
+-r  Read packets from <file> in tcpdump format (hint 2).
+
+-s  Keep only packets that contain <string> in their payload (after any BPF
+    filter is applied). You are not required to implement wildcard or regular
+    expression matching. A simple string matching operation should suffice
+    (hint 3).
+	
+Implementation details : 
+
+1. Used signal handler to terminate program exectution on pressing Ctrl + C
+2. ETHERTYPE_IP is used to check if packet is IP or not. In case of non IP packets, only mac addresses and type is printed.
+3. IPPROTO_TCP, IPPROTO_UDP, IPPROTO_ICMP are used to identify type of IP packets. Along with mac addresses and type, IPs, ports and payload are printed.
+4. getopt is used to parse command line arguments for interface, input file, string pattern and bpf filters. 
+5. Implemented own strstr function for string matching. 
+6. Payload - . is printed in case of non printable chars. Len of payload is IP packet length. 
+
+Example output : 
+
+1. sudo ./mydump udp
+
+172.31.44.111:50120 -> 172.31.44.111:53 UDP
+9d 35 01 00 00 01 00 00 00 00 00 00 06 73 65 61    .5...........sea
+72 63 68 04 61 70 70 73 06 75 62 75 6e 74 75 03    rch.apps.ubuntu.
+63 6f 6d 00 00 1c 00 01                            com.....
+
+2017-10-14 00:53:45.403188 0A:9A:12:10:19:98 -> 0A:F1:A9:86:14:76 type 0x800 len 68
+172.31.44.111:50036 -> 172.31.44.111:53 UDP
+79 94 01 00 00 01 00 00 00 00 00 00 06 73 65 61    y............sea
+72 63 68 04 61 70 70 73 06 75 62 75 6e 74 75 03    rch.apps.ubuntu.
+63 6f 6d 00 00 01 00 01                            com.....
+
+2017-10-14 00:53:45.404470 0A:F1:A9:86:14:76 -> 0A:9A:12:10:19:98 type 0x800 len 129
+172.31.0.2:53 -> 172.31.0.2:50120 UDP
+9d 35 81 80 00 01 00 00 00 01 00 00 06 73 65 61    .5...........sea
+72 63 68 04 61 70 70 73 06 75 62 75 6e 74 75 03    rch.apps.ubuntu.
+63 6f 6d 00 00 1c 00 01 c0 18 00 06 00 01 00 00    com.............
+00 3c 00 31 03 6e 73 31 09 63 61 6e 6f 6e 69 63    .<.1.ns1.canonic
+61 6c c0 1f 0a 68 6f 73 74 6d 61 73 74 65 72 c0    al...hostmaster.
+38 78 3a 85 2d 00 00 2a 30 00 00 0e 10 00 09 3a    8x:.-..*0......:
+80 00 00 0e 10                                     .....
+
+2. sudo ./mydump -i eth0
+
+2017-10-14 01:02:52.449094 0A:F1:A9:86:14:76 -> 0A:9A:12:10:19:98 type 0x800 len 40
+130.245.192.30:1310 -> 130.245.192.30:22 TCP
+
+2017-10-14 01:03:02.423521 0A:9A:12:10:19:98 -> 0A:F1:A9:86:14:76 type 0x800 len 184
+172.31.44.111:22 -> 172.31.44.111:1310 TCP
+5a a1 76 53 cd d1 d4 70 45 0e 51 b4 20 ba b1 01    Z.vS...pE.Q. ...
+b5 f5 2a fa d4 f8 7f 57 26 95 b0 a0 52 a1 96 dd    ..*....W&...R...
+0e 86 ef 63 c7 ac 25 7e fe 80 b3 f1 ca ab 5b c4    ...c..%~......[.
+03 18 45 79 85 ed 76 89 8a 5e dc 50 ea 7e 19 2a    ..Ey..v..^.P.~.*
+13 2c d6 41 dd 6f d0 83 87 15 8d 3d 2f 7a 5d 1d    .,.A.o.....=/z].
+17 78 4f a3 0f 17 fe 37 ab 32 69 d8 4a eb 11 85    .xO....7.2i.J...
+27 14 00 36 3d 34 7e 9b 74 f3 d0 79 80 bc 9d 63    '..6=4~.t..y...c
+53 66 4b a8 08 e9 99 d2 00 6d 59 74 1a 19 38 04    SfK......mYt..8.
+1f c1 ce 6f 97 ce a0 c0 03 2c 7d 97 bb e9 97 58    ...o.....,}....X
+
+3. sudo ./mydump -r hw1.pcap -s HTML dst port 59034
+
+2013-01-14 07:52:52.117029 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 579
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 34 20 47 4d 54 0d 0a 53 65 72    7:53:44 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 31 30 0d    ent-Length: 310.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 31 30 30    eout=15, max=100
+0d 0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65    ..Connection: Ke
+65 70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e    ep-Alive..Conten
+74 2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d    t-Type: text/htm
+6c 3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38    l; charset=iso-8
+38 35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59    859-1....<!DOCTY
+50 45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22    PE HTML PUBLIC "
+2d 2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d    -//IETF//DTD HTM
+4c 20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d    L 2.0//EN">.<htm
+6c 3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e    l><head>.<title>
+34 30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74    404 Not Found</t
+69 74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f    itle>.</head><bo
+64 79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e    dy>.<h1>Not Foun
+64 3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65    d</h1>.<p>The re
+71 75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75    quested URL /ubu
+6e 74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69    ntu/dists/oneiri
+63 2f 49 6e 52 65 6c 65 61 73 65 20 77 61 73 20    c/InRelease was 
+6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20 74 68 69    not found on thi
+73 20 73 65 72 76 65 72 2e 3c 2f 70 3e 0a 3c 68    s server.</p>.<h
+72 3e 0a 3c 61 64 64 72 65 73 73 3e 41 70 61 63    r>.<address>Apac
+68 65 2f 32 2e 32 2e 38 20 28 55 62 75 6e 74 75    he/2.2.8 (Ubuntu
+29 20 53 65 72 76 65 72 20 61 74 20 65 78 74 72    ) Server at extr
+61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d 20 50 6f    as.ubuntu.com Po
+72 74 20 38 30 3c 2f 61 64 64 72 65 73 73 3e 0a    rt 80</address>.
+3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e 0a       </body></html>.
+
+2013-01-14 07:52:52.297303 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 584
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 31 36 0d    ent-Length: 316.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 35 0d    eout=15, max=95.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 49 6e 64 65 78    /main/i18n/Index
+20 77 61 73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f     was not found o
+6e 20 74 68 69 73 20 73 65 72 76 65 72 2e 3c 2f    n this server.</
+70 3e 0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73 73    p>.<hr>.<address
+3e 41 70 61 63 68 65 2f 32 2e 32 2e 38 20 28 55    >Apache/2.2.8 (U
+62 75 6e 74 75 29 20 53 65 72 76 65 72 20 61 74    buntu) Server at
+20 65 78 74 72 61 73 2e 75 62 75 6e 74 75 2e 63     extras.ubuntu.c
+6f 6d 20 50 6f 72 74 20 38 30 3c 2f 61 64 64 72    om Port 80</addr
+65 73 73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74    ess>.</body></ht
+6d 6c 3e 0a                                        ml>.
+
+2013-01-14 07:52:52.336058 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 600
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 33 32 0d    ent-Length: 332.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 34 0d    eout=15, max=94.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 5f 55 53 2e 62 7a 32    lation-en_US.bz2
+20 77 61 73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f     was not found o
+6e 20 74 68 69 73 20 73 65 72 76 65 72 2e 3c 2f    n this server.</
+70 3e 0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73 73    p>.<hr>.<address
+3e 41 70 61 63 68 65 2f 32 2e 32 2e 38 20 28 55    >Apache/2.2.8 (U
+62 75 6e 74 75 29 20 53 65 72 76 65 72 20 61 74    buntu) Server at
+20 65 78 74 72 61 73 2e 75 62 75 6e 74 75 2e 63     extras.ubuntu.c
+6f 6d 20 50 6f 72 74 20 38 30 3c 2f 61 64 64 72    om Port 80</addr
+65 73 73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74    ess>.</body></ht
+6d 6c 3e 0a                                        ml>.
+
+2013-01-14 07:52:52.373153 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 597
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 32 39 0d    ent-Length: 329.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 33 0d    eout=15, max=93.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 2e 62 7a 32 20 77 61    lation-en.bz2 wa
+73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20 74    s not found on t
+68 69 73 20 73 65 72 76 65 72 2e 3c 2f 70 3e 0a    his server.</p>.
+3c 68 72 3e 0a 3c 61 64 64 72 65 73 73 3e 41 70    <hr>.<address>Ap
+61 63 68 65 2f 32 2e 32 2e 38 20 28 55 62 75 6e    ache/2.2.8 (Ubun
+74 75 29 20 53 65 72 76 65 72 20 61 74 20 65 78    tu) Server at ex
+74 72 61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d 20    tras.ubuntu.com 
+50 6f 72 74 20 38 30 3c 2f 61 64 64 72 65 73 73    Port 80</address
+3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e    >.</body></html>
+0a                                                 .
+
+2013-01-14 07:52:52.403619 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 599
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 33 31 0d    ent-Length: 331.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 32 0d    eout=15, max=92.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 5f 55 53 2e 78 7a 20    lation-en_US.xz 
+77 61 73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e    was not found on
+20 74 68 69 73 20 73 65 72 76 65 72 2e 3c 2f 70     this server.</p
+3e 0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73 73 3e    >.<hr>.<address>
+41 70 61 63 68 65 2f 32 2e 32 2e 38 20 28 55 62    Apache/2.2.8 (Ub
+75 6e 74 75 29 20 53 65 72 76 65 72 20 61 74 20    untu) Server at 
+65 78 74 72 61 73 2e 75 62 75 6e 74 75 2e 63 6f    extras.ubuntu.co
+6d 20 50 6f 72 74 20 38 30 3c 2f 61 64 64 72 65    m Port 80</addre
+73 73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d    ss>.</body></htm
+6c 3e 0a                                           l>.
+
+2013-01-14 07:52:52.431514 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 596
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 32 38 0d    ent-Length: 328.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 31 0d    eout=15, max=91.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 2e 78 7a 20 77 61 73    lation-en.xz was
+20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20 74 68     not found on th
+69 73 20 73 65 72 76 65 72 2e 3c 2f 70 3e 0a 3c    is server.</p>.<
+68 72 3e 0a 3c 61 64 64 72 65 73 73 3e 41 70 61    hr>.<address>Apa
+63 68 65 2f 32 2e 32 2e 38 20 28 55 62 75 6e 74    che/2.2.8 (Ubunt
+75 29 20 53 65 72 76 65 72 20 61 74 20 65 78 74    u) Server at ext
+72 61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d 20 50    ras.ubuntu.com P
+6f 72 74 20 38 30 3c 2f 61 64 64 72 65 73 73 3e    ort 80</address>
+0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e 0a    .</body></html>.
+
+2013-01-14 07:52:52.459535 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 601
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 33 33 0d    ent-Length: 333.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 39 30 0d    eout=15, max=90.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 5f 55 53 2e 6c 7a 6d    lation-en_US.lzm
+61 20 77 61 73 20 6e 6f 74 20 66 6f 75 6e 64 20    a was not found 
+6f 6e 20 74 68 69 73 20 73 65 72 76 65 72 2e 3c    on this server.<
+2f 70 3e 0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73    /p>.<hr>.<addres
+73 3e 41 70 61 63 68 65 2f 32 2e 32 2e 38 20 28    s>Apache/2.2.8 (
+55 62 75 6e 74 75 29 20 53 65 72 76 65 72 20 61    Ubuntu) Server a
+74 20 65 78 74 72 61 73 2e 75 62 75 6e 74 75 2e    t extras.ubuntu.
+63 6f 6d 20 50 6f 72 74 20 38 30 3c 2f 61 64 64    com Port 80</add
+72 65 73 73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68    ress>.</body></h
+74 6d 6c 3e 0a                                     tml>.
+
+2013-01-14 07:52:52.497003 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 598
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 33 30 0d    ent-Length: 330.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 38 39 0d    eout=15, max=89.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 2e 6c 7a 6d 61 20 77    lation-en.lzma w
+61 73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20    as not found on 
+74 68 69 73 20 73 65 72 76 65 72 2e 3c 2f 70 3e    this server.</p>
+0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73 73 3e 41    .<hr>.<address>A
+70 61 63 68 65 2f 32 2e 32 2e 38 20 28 55 62 75    pache/2.2.8 (Ubu
+6e 74 75 29 20 53 65 72 76 65 72 20 61 74 20 65    ntu) Server at e
+78 74 72 61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d    xtras.ubuntu.com
+20 50 6f 72 74 20 38 30 3c 2f 61 64 64 72 65 73     Port 80</addres
+73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c    s>.</body></html
+3e 0a                                              >.
+
+2013-01-14 07:52:52.528143 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 599
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 33 31 0d    ent-Length: 331.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 38 38 0d    eout=15, max=88.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 5f 55 53 2e 67 7a 20    lation-en_US.gz 
+77 61 73 20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e    was not found on
+20 74 68 69 73 20 73 65 72 76 65 72 2e 3c 2f 70     this server.</p
+3e 0a 3c 68 72 3e 0a 3c 61 64 64 72 65 73 73 3e    >.<hr>.<address>
+41 70 61 63 68 65 2f 32 2e 32 2e 38 20 28 55 62    Apache/2.2.8 (Ub
+75 6e 74 75 29 20 53 65 72 76 65 72 20 61 74 20    untu) Server at 
+65 78 74 72 61 73 2e 75 62 75 6e 74 75 2e 63 6f    extras.ubuntu.co
+6d 20 50 6f 72 74 20 38 30 3c 2f 61 64 64 72 65    m Port 80</addre
+73 73 3e 0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d    ss>.</body></htm
+6c 3e 0a                                           l>.
+
+2013-01-14 07:52:52.561759 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 596
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 32 38 0d    ent-Length: 328.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 38 37 0d    eout=15, max=87.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 2e 67 7a 20 77 61 73    lation-en.gz was
+20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20 74 68     not found on th
+69 73 20 73 65 72 76 65 72 2e 3c 2f 70 3e 0a 3c    is server.</p>.<
+68 72 3e 0a 3c 61 64 64 72 65 73 73 3e 41 70 61    hr>.<address>Apa
+63 68 65 2f 32 2e 32 2e 38 20 28 55 62 75 6e 74    che/2.2.8 (Ubunt
+75 29 20 53 65 72 76 65 72 20 61 74 20 65 78 74    u) Server at ext
+72 61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d 20 50    ras.ubuntu.com P
+6f 72 74 20 38 30 3c 2f 61 64 64 72 65 73 73 3e    ort 80</address>
+0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e 0a    .</body></html>.
+
+2013-01-14 07:52:52.592216 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 596
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 32 38 0d    ent-Length: 328.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 38 36 0d    eout=15, max=86.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 5f 55 53 20 77 61 73    lation-en_US was
+20 6e 6f 74 20 66 6f 75 6e 64 20 6f 6e 20 74 68     not found on th
+69 73 20 73 65 72 76 65 72 2e 3c 2f 70 3e 0a 3c    is server.</p>.<
+68 72 3e 0a 3c 61 64 64 72 65 73 73 3e 41 70 61    hr>.<address>Apa
+63 68 65 2f 32 2e 32 2e 38 20 28 55 62 75 6e 74    che/2.2.8 (Ubunt
+75 29 20 53 65 72 76 65 72 20 61 74 20 65 78 74    u) Server at ext
+72 61 73 2e 75 62 75 6e 74 75 2e 63 6f 6d 20 50    ras.ubuntu.com P
+6f 72 74 20 38 30 3c 2f 61 64 64 72 65 73 73 3e    ort 80</address>
+0a 3c 2f 62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e 0a    .</body></html>.
+
+2013-01-14 07:52:52.625032 C4:3D:C7:17:6F:9B -> 00:0C:29:E9:94:8E type 0x800 len 593
+91.189.88.33:80 -> 91.189.88.33:59034 TCP
+48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74    HTTP/1.1 404 Not
+20 46 6f 75 6e 64 0d 0a 44 61 74 65 3a 20 4d 6f     Found..Date: Mo
+6e 2c 20 31 34 20 4a 61 6e 20 32 30 31 33 20 30    n, 14 Jan 2013 0
+37 3a 35 33 3a 34 35 20 47 4d 54 0d 0a 53 65 72    7:53:45 GMT..Ser
+76 65 72 3a 20 41 70 61 63 68 65 2f 32 2e 32 2e    ver: Apache/2.2.
+38 20 28 55 62 75 6e 74 75 29 0d 0a 43 6f 6e 74    8 (Ubuntu)..Cont
+65 6e 74 2d 4c 65 6e 67 74 68 3a 20 33 32 35 0d    ent-Length: 325.
+0a 4b 65 65 70 2d 41 6c 69 76 65 3a 20 74 69 6d    .Keep-Alive: tim
+65 6f 75 74 3d 31 35 2c 20 6d 61 78 3d 38 35 0d    eout=15, max=85.
+0a 43 6f 6e 6e 65 63 74 69 6f 6e 3a 20 4b 65 65    .Connection: Kee
+70 2d 41 6c 69 76 65 0d 0a 43 6f 6e 74 65 6e 74    p-Alive..Content
+2d 54 79 70 65 3a 20 74 65 78 74 2f 68 74 6d 6c    -Type: text/html
+3b 20 63 68 61 72 73 65 74 3d 69 73 6f 2d 38 38    ; charset=iso-88
+35 39 2d 31 0d 0a 0d 0a 3c 21 44 4f 43 54 59 50    59-1....<!DOCTYP
+45 20 48 54 4d 4c 20 50 55 42 4c 49 43 20 22 2d    E HTML PUBLIC "-
+2f 2f 49 45 54 46 2f 2f 44 54 44 20 48 54 4d 4c    //IETF//DTD HTML
+20 32 2e 30 2f 2f 45 4e 22 3e 0a 3c 68 74 6d 6c     2.0//EN">.<html
+3e 3c 68 65 61 64 3e 0a 3c 74 69 74 6c 65 3e 34    ><head>.<title>4
+30 34 20 4e 6f 74 20 46 6f 75 6e 64 3c 2f 74 69    04 Not Found</ti
+74 6c 65 3e 0a 3c 2f 68 65 61 64 3e 3c 62 6f 64    tle>.</head><bod
+79 3e 0a 3c 68 31 3e 4e 6f 74 20 46 6f 75 6e 64    y>.<h1>Not Found
+3c 2f 68 31 3e 0a 3c 70 3e 54 68 65 20 72 65 71    </h1>.<p>The req
+75 65 73 74 65 64 20 55 52 4c 20 2f 75 62 75 6e    uested URL /ubun
+74 75 2f 64 69 73 74 73 2f 6f 6e 65 69 72 69 63    tu/dists/oneiric
+2f 6d 61 69 6e 2f 69 31 38 6e 2f 54 72 61 6e 73    /main/i18n/Trans
+6c 61 74 69 6f 6e 2d 65 6e 20 77 61 73 20 6e 6f    lation-en was no
+74 20 66 6f 75 6e 64 20 6f 6e 20 74 68 69 73 20    t found on this 
+73 65 72 76 65 72 2e 3c 2f 70 3e 0a 3c 68 72 3e    server.</p>.<hr>
+0a 3c 61 64 64 72 65 73 73 3e 41 70 61 63 68 65    .<address>Apache
+2f 32 2e 32 2e 38 20 28 55 62 75 6e 74 75 29 20    /2.2.8 (Ubuntu) 
+53 65 72 76 65 72 20 61 74 20 65 78 74 72 61 73    Server at extras
+2e 75 62 75 6e 74 75 2e 63 6f 6d 20 50 6f 72 74    .ubuntu.com Port
+20 38 30 3c 2f 61 64 64 72 65 73 73 3e 0a 3c 2f     80</address>.</
+62 6f 64 79 3e 3c 2f 68 74 6d 6c 3e 0a             body></html>.
+
+
